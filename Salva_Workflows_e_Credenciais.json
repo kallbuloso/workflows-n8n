@@ -1,0 +1,418 @@
+{
+  "name": "Salva Workflows e Credenciais",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 3
+            }
+          ]
+        }
+      },
+      "id": "41fb457a-9647-46d5-8a72-0939732f5f34",
+      "name": "Daily",
+      "type": "n8n-nodes-base.cron",
+      "position": [
+        780,
+        660
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "filters": {},
+        "requestOptions": {}
+      },
+      "id": "5aeaf7d7-e234-418a-beae-86fbbc579228",
+      "name": "n8n",
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        520
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "n8nApi": {
+          "id": "PoVgRew0T2FUYCZ3",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "workflowId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "requestOptions": {}
+      },
+      "id": "09dbf129-57ef-4bed-914a-2297805143b5",
+      "name": "n8n1",
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        620
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "n8nApi": {
+          "id": "PoVgRew0T2FUYCZ3",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "mergeByIndex"
+      },
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "position": [
+        1520,
+        500
+      ],
+      "typeVersion": 1,
+      "id": "e2d06a92-f5ac-4dbb-8713-2e88c422d4a2"
+    },
+    {
+      "parameters": {
+        "command": "mkdir -p /home/node/backup-credentials"
+      },
+      "id": "4a71761d-9bfb-4f5d-9f03-8928aada6a47",
+      "name": "Cria Pasta",
+      "type": "n8n-nodes-base.executeCommand",
+      "position": [
+        1040,
+        860
+      ],
+      "typeVersion": 1,
+      "notes": "Apenas Verifica se a pasta existe antes de continuar e evitar exceções."
+    },
+    {
+      "parameters": {
+        "command": "n8n export:credentials --backup --decrypted --output=/home/node/backup-credentials"
+      },
+      "id": "c4537037-d3b5-4c37-9844-5f4588ef2e26",
+      "name": "Exporta Credenciais",
+      "type": "n8n-nodes-base.executeCommand",
+      "position": [
+        1240,
+        860
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "mode": "jsonToBinary",
+        "options": {
+          "useRawData": false
+        }
+      },
+      "name": "Move Binary Data Flows",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "position": [
+        1740,
+        600
+      ],
+      "typeVersion": 1,
+      "id": "96192d60-8fd2-4a11-ac1b-dee167489ecb"
+    },
+    {
+      "parameters": {
+        "mode": "jsonToBinary",
+        "options": {}
+      },
+      "name": "Move Json Data Credentials",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "position": [
+        1840,
+        860
+      ],
+      "typeVersion": 1,
+      "id": "ffa8834a-b0ce-4abb-aba7-3c1ff822844d"
+    },
+    {
+      "parameters": {
+        "command": "rm -rf /home/node/backup-credentials"
+      },
+      "id": "e4a85ada-7db7-43e4-a3a9-f729cda46f7f",
+      "name": "Limpa Pasta Raiz",
+      "type": "n8n-nodes-base.executeCommand",
+      "position": [
+        2240,
+        860
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "Este fluxo n8n é configurado para realizar backups diários das credenciais e workflows da sua instância n8n, salvando-os em um bucket S3 e limpando os arquivos antigos de backup que tenham mais de 30 dias. Aqui está uma descrição humanizada do que ele faz e como usá-lo:\n\n### Descrição do Fluxo\n\n1. **Trigger Diário**: O fluxo é ativado todos os dias às 3h da manhã.\n2. **Criação de Pasta**: O fluxo verifica se a pasta `/home/node/backup-credentials` existe. Se não existir, ele a cria para armazenar os backups temporários.\n3. **Limpeza de Arquivos Antigos**: Antes de começar a exportar, ele limpa qualquer arquivo `.json` existente na pasta de backup para evitar duplicatas.\n4. **Exportação de Credenciais**: Ele exporta todas as credenciais n8n, de forma descriptografada, para a pasta de backup temporária.\n5. **Leitura e Manipulação de Dados Binários**: O fluxo converte os dados JSON exportados para binário, movendo-os para preparação do envio.\n6. **Upload para S3**: As credenciais e workflows exportados são enviados para um bucket S3 com o formato de data como diretório.\n7. **Limpeza Pós-Upload**: Após o upload bem-sucedido para o S3, o fluxo limpa a pasta temporária de backup.\n8. **Limpeza de Backups Antigos no S3**: O fluxo também apaga automaticamente qualquer backup no S3 com mais de 30 dias para economizar espaço.\n\n### Instruções de Uso\n\n1. **Configuração do Bucket S3**: Certifique-se de configurar corretamente suas credenciais para o serviço S3, com acesso de gravação e exclusão de arquivos no bucket especificado.\n2. **Ajustar Horário de Execução**: Se preferir outro horário para o backup, ajuste o nó \"Daily\" para o horário de sua preferência.\n3. **Verificar Diretórios Locais**: Certifique-se de que o caminho `/home/node/backup-credentials` existe ou é acessível pelo usuário do n8n.\n4. **Executar Testes Manuais**: Antes de deixar o fluxo rodar em produção, execute-o manualmente para garantir que todos os passos (criação de pasta, limpeza, exportação e upload para S3) estejam funcionando corretamente.\n5. **Monitoramento de Falhas**: Habilite notificações ou revise periodicamente o fluxo para monitorar possíveis falhas ou ajustes necessários.\n\nEsse fluxo é útil para automatizar a rotina de backup de dados sensíveis de forma confiável e segura, com redundância e limpeza periódica de backups antigos.\n\nPS: preguiça! Fiz a descrição no GPT.",
+        "height": 817.8125,
+        "width": 799.375,
+        "color": 4
+      },
+      "id": "5a38d59f-c0b8-4b28-9850-f78309361023",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -220,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "fileSelector": "/home/node/backup-credentials/*.json"
+      },
+      "id": "67c758b5-06c5-485c-81f0-51a5cd82df8f",
+      "name": "Read Binary Files",
+      "type": "n8n-nodes-base.readBinaryFiles",
+      "position": [
+        1440,
+        860
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Move Binary to Json Credentials",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "position": [
+        1640,
+        860
+      ],
+      "typeVersion": 1,
+      "id": "3cb4dc91-3c1a-47b0-9973-be881d8f96d5"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "delete",
+        "bucketName": "n8n",
+        "folderKey": "={{$today.minus({days: 30}).toFormat('dd_MM_yyyy')}}"
+      },
+      "id": "829c4f0c-925a-45cb-a13b-0a00ce2e46c3",
+      "name": "Remove diretório com mais de 30 dias",
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        2180,
+        600
+      ],
+      "credentials": {
+        "s3": {
+          "id": "IJ9S4M0YxqZYM9Wu",
+          "name": "S3 account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "n8n",
+        "fileName": "={{ $today.format('dd_MM_yyyy') + '/credentials/' + $('Move Binary to Json Credentials').item.json.name }}.json",
+        "additionalFields": {}
+      },
+      "id": "5a5a5947-7a85-4eb3-8ceb-aed74d266ee0",
+      "name": "Minio Credenciais",
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        860
+      ],
+      "credentials": {
+        "s3": {
+          "id": "IJ9S4M0YxqZYM9Wu",
+          "name": "S3 account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "n8n",
+        "fileName": "={{ $today.format('dd_MM_yyyy') + '/flows/' + $('Merge').item.json.name }}.json",
+        "additionalFields": {}
+      },
+      "id": "59e680f9-fcf9-4fb3-b165-c4ca3a31cc95",
+      "name": "Minio Workflows",
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        1960,
+        600
+      ],
+      "credentials": {
+        "s3": {
+          "id": "IJ9S4M0YxqZYM9Wu",
+          "name": "S3 account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily": {
+      "main": [
+        [
+          {
+            "node": "n8n",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Cria Pasta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n": {
+      "main": [
+        [
+          {
+            "node": "n8n1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Move Binary Data Flows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cria Pasta": {
+      "main": [
+        [
+          {
+            "node": "Exporta Credenciais",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exporta Credenciais": {
+      "main": [
+        [
+          {
+            "node": "Read Binary Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move Binary Data Flows": {
+      "main": [
+        [
+          {
+            "node": "Minio Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move Json Data Credentials": {
+      "main": [
+        [
+          {
+            "node": "Minio Credenciais",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Binary Files": {
+      "main": [
+        [
+          {
+            "node": "Move Binary to Json Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move Binary to Json Credentials": {
+      "main": [
+        [
+          {
+            "node": "Move Json Data Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Minio Credenciais": {
+      "main": [
+        [
+          {
+            "node": "Limpa Pasta Raiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Minio Workflows": {
+      "main": [
+        [
+          {
+            "node": "Remove diretório com mais de 30 dias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8fd800c5-521f-4e28-bbd5-aba13342e9d6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "636416ec8474973073f2ee39edac413391d92e3cd144502d576921f6c38935e5"
+  },
+  "id": "UjHI3aPrIQRnG9yH",
+  "tags": []
+}
